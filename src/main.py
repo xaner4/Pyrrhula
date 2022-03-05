@@ -1,33 +1,20 @@
+import datetime
 import os
 import time
+from typing import Union, Tuple
 import json
 
 from dotenv import load_dotenv
 import tweepy
+import slack_sdk as slack
 
 load_dotenv()
 
 users: list = os.environ["twitter_users"].split(",")
 keywords: list = os.environ["twitter_keywords"].split(",")
 client: tweepy.Client = tweepy.Client(os.environ["bearer_token"])
-
-
-class Tweet:
-    def __init__(
-        self,
-        user_id: int,
-        username: str,
-        tweet_id: int,
-    ):
-        self.timestamp = int(time.time())
-        self.user_id = user_id
-        self.id = tweet_id
-        self.username = username
-        self.tweet_url = self.make_tweet_url()
-
-    def make_tweet_url(self):
-        return f"https://twitter.com/{self.username}/status/{self.id}"
-
+slack_token: str = os.environ["slack_bot_token"]
+slack_channel: str = os.environ["slack_channel"]
 
 class User:
     def __init__(self, username: str, id: int, name: str):
@@ -43,94 +30,42 @@ class User:
             list_users.append(User(user.username, user.id, user.name).__dict__)
         return list_users
 
-
 class Twitter:
     def __init__(self, user: User):
         self.user = user
 
-    def user_lookup(self, users: list[str]) -> list[tweepy.User]:
-        return client.get_users(usernames=users)
-
     def latest_user_tweets(self):
         return client.get_users_tweets(self.user["id"])
 
-    def search_timeline(self, keywords: list[str] = []) -> list[Tweet]:
-        tweets: list[Tweet] = []
+    def search_timeline(self, keywords: list[str] = []) -> list[int]:
+        tweets: list[int] = []
         latest_tweets = self.latest_user_tweets()[0]
         for tweet in latest_tweets:
             for i in keywords:
                 if i in tweet.text.lower():
-                    tweets.append(
-                        Tweet(self.user["id"], self.user["username"], tweet.id).__dict__
-                    )
+                    tweets.append(tweet.id)
         return tweets
 
-
-class Cache:
-    def __init__(self, cachename: str, count = 10,ttl: int = 3600):
-        self.cachename = cachename
+class Tweet_cache:
+    def __init__(self):
+        self.cachename = "tweets"
         self.cachedir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "../cache/"
         )
         self.cachefile = os.path.join(self.cachedir, f"{self.cachename}.json")
         self.cachedir_exsists = self.create_cachedir()
-        self.ttl = ttl
-        self.current_cache = self.load()
-        self.cache = []
-        self.load()
-        self.validate()
-
-    def load(self):
-        if not self.cachedir_exsists:
-            raise Exception("Cache dir does not exists")
-        if not os.path.exists(self.cachefile):
-            with open(self.cachefile, "x") as cache:
-                cache.close()
-
-        with open(self.cachefile, "r") as cache:
-            self.cache = json.load(cache)
-
-    def save(self):
-        if not self.cachedir_exsists:
-            raise Exception("Cache dir does not exists")
-
-        if not os.path.exists(self.cachefile):
-            with open(self.cachefile, "x+") as cache:
-                json.dumps(self.cache, cache, indent=4)
-        else:
-            with open(self.cachefile, "w+") as cache:
-                json.dump(self.cache, cache, indent=4)
-
-    def add(self, item: Tweet = None, items: list[Tweet] = None):
-        if item is not None and not items is None:
-            raise TypeError("Excpected one item or a list of items, not both")
-        if item is not None:
-            self.cache.append(item)
-        elif items is not None:
-            self.cache.extend(items)
-        else:
-            raise TypeError("item or a list of items is required")
 
 
-    def remove(self, id: int):
-        pass
+    def load_sent_tweets(self) -> list[int]:
+        with open(self.cachefile, "r") as tweets_file:
+            data = json.load(tweets_file)
+            return data
 
-    def validate(self):
-        now: int = int(time.time())
-        for seq, item in enumerate(self.cache):
-            if item["timestamp"] >= (now - self.ttl):
-                self.cache.pop(seq)
-
-    def check_duplicate(self):
-        cache_id: list[int] = []
-        for item in self.cache:
-            cache_id.append(item["id"])
-
-        if sorted(list(set(cache_id))) == sorted(cache_id):
-            return
-
-        for seq, item in enumerate(cache_id):
-            pass
+    def save_tweets(self,tweets: list[int]):
+        if len(tweets) > 100:
+            tweets = tweets[:50]
+        with open(self.cachefile, "w+") as tweets_file:
+            json.dump(tweets, tweets_file)
 
     def create_cachedir(self):
         if os.path.exists(self.cachedir):
@@ -143,18 +78,39 @@ class Cache:
             else:
                 return True
 
+class Slack:
+    def __init__(self):
+        self.client = slack.WebClient(token=slack_token)
+
+    def send_message(self, message: Union[str, list[str]]):
+        print(dir(self.client))
+        response = self.client.chat_postMessage(channel=slack_channel, text=f"@channel {message}")
+        print(response)
 
 def main():
     usersobj: list[User] = []
     usersobj.extend(User.lookup_users(users))
-    print(usersobj)
-    tweets: list[Tweet] = []
+    slackbot = Slack()
+    tweet_cache = Tweet_cache()
+    sendt_tweets = tweet_cache.load_sent_tweets()
     for user in usersobj:
+        tweets: list[int] = []
+        send_tweets: list[int] = []
+        tweet_link: list[str] = []
         t = Twitter(user)
         timeline = t.search_timeline(keywords)
         tweets.extend(timeline)
-    cache_tweets = Cache("tweets")
-    cache_tweets.save()
+        for i in tweets:
+            if i not in sendt_tweets:
+                send_tweets.append(i)
+        for i in send_tweets:
+            tweet_link.append(f"https://twitter.com/{user['username']}/status/{i}")
+        print(f"{datetime.datetime.now()}: send to slack {tweet_link}")
+        sendt_tweets.extend(send_tweets)
+        for msg in tweet_link:
+            slackbot.send_message(msg)
+
+    tweet_cache.save_tweets(sendt_tweets)
 
 
 if __name__ == "__main__":
