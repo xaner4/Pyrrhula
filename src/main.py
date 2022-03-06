@@ -1,15 +1,12 @@
 import datetime
 import os
 import time
-from typing import Union, Tuple
 import json
 
-from dotenv import load_dotenv
 import tweepy
 import slack_sdk as slack
 import yaml
 
-load_dotenv()
 
 configfile = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "config.yml")
 with open(configfile, "r") as f:
@@ -46,9 +43,11 @@ class Twitter:
         tweets: list[int] = []
         latest_tweets = self.latest_user_tweets()[0]
         for tweet in latest_tweets:
+            tweet_list = tweet.text.lower().split(" ")
             for i in keywords:
-                if i in tweet.text.lower():
+                if i.lower() in tweet_list:
                     tweets.append(tweet.id)
+                    break
         return tweets
 
 class Tweet_cache:
@@ -59,6 +58,7 @@ class Tweet_cache:
         )
         self.cachefile = os.path.join(self.cachedir, f"{self.cachename}.json")
         self.cachedir_exsists = self.create_cachedir()
+        self.cachefile_exists = self.create_cachefile()
 
 
     def load_sent_tweets(self) -> list[int]:
@@ -67,8 +67,9 @@ class Tweet_cache:
             return data
 
     def save_tweets(self,tweets: list[int]):
+        print(f"Tweets Cached: {len(tweets)}")
         if len(tweets) > 100:
-            tweets = tweets[:50]
+            tweets = tweets[60:]
         with open(self.cachefile, "w+") as tweets_file:
             json.dump(tweets, tweets_file)
 
@@ -78,19 +79,29 @@ class Tweet_cache:
         else:
             try:
                 os.mkdir(self.cachedir)
-            except Exception as e:
+            except Exception:
                 return False
             else:
                 return True
+    
+    def create_cachefile(self):
+        if os.path.exists(self.cachefile):
+            return True
+        else:
+            with open(self.cachefile, "x+") as f:
+                try: 
+                    f.write("[]")
+                except Exception:
+                    return False
+                finally:
+                    return True
 
 class Slack:
     def __init__(self):
         self.client = slack.WebClient(token=slack_token)
 
-    def send_message(self, message: Union[str, list[str]]):
-        print(dir(self.client))
-        response = self.client.chat_postMessage(channel=slack_channel, text=f"@channel {message}")
-        print(response)
+    def send_message(self, message: str):
+        self.client.chat_postMessage(channel=slack_channel, text=message)
 
 def main():
     usersobj: list[User] = []
@@ -98,6 +109,7 @@ def main():
     slackbot = Slack()
     tweet_cache = Tweet_cache()
     sendt_tweets = tweet_cache.load_sent_tweets()
+
     for user in usersobj:
         tweets: list[int] = []
         send_tweets: list[int] = []
@@ -108,8 +120,9 @@ def main():
         for i in tweets:
             if i not in sendt_tweets:
                 send_tweets.append(i)
-        for i in send_tweets:
-            tweet_link.append(f"https://twitter.com/{user['username']}/status/{i}")
+        for id in send_tweets:
+            tweet_link.append(f"https://twitter.com/{user['username']}/status/{id}")
+
         print(f"{datetime.datetime.now()}: send to slack {tweet_link}")
         sendt_tweets.extend(send_tweets)
         for msg in tweet_link:
