@@ -10,6 +10,7 @@ python = "^3.10"
 slack-sdk = "^3.15.1"
 tweepy = "^4.6.0"
 python-dotenv = "^0.19.2"
+PyYAML = "^6.0"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^22.1.0", allow-prereleases = true}
