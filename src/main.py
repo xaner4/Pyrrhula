@@ -7,14 +7,19 @@ import json
 from dotenv import load_dotenv
 import tweepy
 import slack_sdk as slack
+import yaml
 
 load_dotenv()
 
-users: list = os.environ["twitter_users"].split(",")
-keywords: list = os.environ["twitter_keywords"].split(",")
-client: tweepy.Client = tweepy.Client(os.environ["bearer_token"])
-slack_token: str = os.environ["slack_bot_token"]
-slack_channel: str = os.environ["slack_channel"]
+configfile = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "config.yml")
+with open(configfile, "r") as f:
+    config = yaml.safe_load(f)
+
+users: list = config["twitter"]["users"]
+keywords: list = config["twitter"]["keywords"]
+client: tweepy.Client = tweepy.Client(config["twitter"]["bearer_token"])
+slack_token: str = config["slack"]["token"]
+slack_channel: str = config["slack"]["channel"]
 
 class User:
     def __init__(self, username: str, id: int, name: str):
