@@ -1,0 +1,10 @@
+twitter:
+  bearer_token: ""
+  users:
+    - ""
+  keywords:
+    - "keywords"
+
+slack:
+  token: ""
+  channel: ""
