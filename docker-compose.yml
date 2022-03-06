@@ -1,0 +1,8 @@
+version: "3"
+
+services:
+  pyrrhula:
+    container_name: pyrrhula-twitter-bot
+    restart: always
+    build: ./
+    image: pyrrhula:latest
