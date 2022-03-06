@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Python: Main start",
             "type": "python",
             "request": "launch",
-            "program": "src/main_copy.py",
+            "program": "src/main.py",
             "console": "integratedTerminal"
         }
     ]
