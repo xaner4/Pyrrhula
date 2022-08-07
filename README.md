@@ -14,12 +14,13 @@ it will check the user every 2 minuttes and will check 10 tweets at the time
 
 ## Installation guide
 
-1. Build docker image
+1. Create config file
 ```bash
-sudo docker compose build
+mv config.yml.example config.yml
 ```
 
 2. Configure application
+
 ```yaml
 twitter:
   bearer_token: "TWITTER_TOKEN"
@@ -34,8 +35,12 @@ slack:
   token: "SLACK_TOKEN"
   channel: "musttweets"
 ```
+3. Build docker image
+```bash
+sudo docker compose build
+```
 
-3. Start docker container
+4. Start docker container
 ```bash
 sudo docker compose up -d
 ```
