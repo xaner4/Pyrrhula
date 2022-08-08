@@ -30,6 +30,9 @@ twitter:
     - "doge"
     - "tesla"
     - "spacex"
+  exclude_type:
+    - "retweets"
+    - "replies"
 
 slack:
   token: "SLACK_TOKEN"

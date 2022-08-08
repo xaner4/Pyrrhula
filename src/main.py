@@ -14,6 +14,7 @@ with open(configfile, "r") as f:
 
 users: list = config["twitter"]["users"]
 keywords: list = config["twitter"]["keywords"]
+exclude_tweet_types: list = config["twitter"]["exclude_type"]
 client: tweepy.Client = tweepy.Client(config["twitter"]["bearer_token"])
 slack_token: str = config["slack"]["token"]
 slack_channel: str = config["slack"]["channel"]
@@ -37,7 +38,8 @@ class Twitter:
         self.user = user
 
     def latest_user_tweets(self):
-        return client.get_users_tweets(self.user["id"])
+        exclude_type: str = ",".join(exclude_tweet_types)
+        return client.get_users_tweets(self.user["id"], exclude=exclude_type)
 
     def search_timeline(self, keywords: list[str] = []) -> list[int]:
         tweets: list[int] = []

@@ -4,6 +4,9 @@ twitter:
     - ""
   keywords:
     - "keywords"
+  exclude_type:
+    - "retweets"
+    - "replies"
 
 slack:
   token: ""
